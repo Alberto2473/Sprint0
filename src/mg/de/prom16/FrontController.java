@@ -1,4 +1,5 @@
 package mg.de.prom16;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -12,7 +13,7 @@ import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
-public class FrontServlet extends HttpServlet
+public class FrontController extends HttpServlet
 {
     int checked = 0;
     List<String> listeControllers = new ArrayList<>();
@@ -23,6 +24,18 @@ public class FrontServlet extends HttpServlet
         String requestedPage = request.getPathInfo();
         
         out.println("www.sprint0.com" + requestedPage);
+
+        if (checked==0) {
+            ServletConfig config = getServletConfig();
+            scan(config);
+            checked = 0;
+        }
+
+        out.println("Liste des contrôleurs annotés avec @AnnotationController :");
+        for (String controller : listeControllers) {
+            out.println(controller);
+        }
+
         out.close();
     }
 
@@ -41,16 +54,16 @@ public class FrontServlet extends HttpServlet
     @Override
     public void init(ServletConfig config) throws ServletException {
         super.init(config);
-        scanControllers(config);
+        scan(config);
     }
 
-    private void scanControllers(ServletConfig config) {
+    private void scan(ServletConfig config) { // pour voir ce qui est Controller
         try {
             String controllerPackage = config.getInitParameter("controller-package");
             String path = "WEB-INF/classes/" + controllerPackage.replace('.', '/');
             File directory = new File(getServletContext().getRealPath(path));
             if (directory.exists()) {
-                scanDirectory(directory, controllerPackage);
+                scan2(directory, controllerPackage);
             } else {
                 System.out.println("Directory does not exist: " + directory.getAbsolutePath());
             }
@@ -59,10 +72,10 @@ public class FrontServlet extends HttpServlet
         }
     }
 
-    private void scanDirectory(File dossier, String packageName) {
+    private void scan2(File dossier, String packageName) { // pour scanner les sous repertoire
         for (File file : dossier.listFiles()) {
             if (file.isDirectory()) {
-                scanDirectory(file, packageName + "." + file.getName());
+                scan2(file, packageName + "." + file.getName());
             } else if (file.getName().endsWith(".class")) {
                 String className = packageName + '.' + file.getName().substring(0, file.getName().length() - 6);
                 try {
