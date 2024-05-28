@@ -6,8 +6,8 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.ElementType;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-public @interface AnnotationController
+@Target(ElementType.METHOD)
+public @interface GetMethode
 {
     String value();
 }
