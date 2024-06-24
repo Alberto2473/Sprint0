@@ -29,10 +29,27 @@ public class HashMap {
         this.mapping = mapping;
     }
 
-    public boolean associer() {
-        if(this.getUrl().equals(this.getMapping().getClassName())) {
-            return true;
+    public String associer() {
+        String valiny="";
+        for (int i = 0; i < this.getMapping().getMethodName().size() ; i++) {
+            String compare=this.getMapping().getMethodName().get(i);
+            if(this.getUrl().equals(compare)) {
+                valiny=compare;
+            }
         }
-        return false;
+        if (valiny.equals("")) {
+            valiny="aucun methode lies a l'url";
+        }
+        return valiny;
+    }
+
+    public String leMethode() {
+        String resultat="";
+        String fonction=this.associer();
+        if (fonction.equals("aucun methode lies a l'url")==false) {
+            String[] valiny2=fonction.split("/");
+            resultat=valiny2[1];
+        }
+        return resultat;
     }
 }
