@@ -31,7 +31,7 @@ public class FrontController extends HttpServlet
             if (requestedPage == null) {
                 requestedPage = request.getServletPath();
             }
-            out.println("www.Sprint.com" + requestedPage);
+            out.println("www.Sprint5.com" + requestedPage);
 
             String controllerPackage = getServletConfig().getInitParameter("Controllers");
             // out.println(controllerPackage);
