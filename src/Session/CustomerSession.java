@@ -3,7 +3,6 @@ package Session;
 import java.util.HashMap;
 
 public class CustomerSession {
-    
     HashMap<String, Object> session = new HashMap<>();
 
     public CustomerSession() {}

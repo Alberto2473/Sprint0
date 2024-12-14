@@ -18,6 +18,7 @@ import com.google.gson.Gson;
 import MV.ModelView;
 import Map.Mapping;
 import Session.CustomerSession;
+import Verb.VerbAction;
 import annotation.*;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
@@ -25,13 +26,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
 
-public class FrontController extends HttpServlet
-{
+public class FrontController extends HttpServlet {
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         PrintWriter out = response.getWriter();
-        
-        response.setContentType("text/html;charset=UTF-8");
+
+        // response.setContentType("text/html;charset=UTF-8");
         try {
             String requestedPage = request.getPathInfo();
             if (requestedPage == null) {
@@ -40,9 +40,10 @@ public class FrontController extends HttpServlet
             // out.println("www.Sprint.com" + requestedPage);
 
             HttpSession session = request.getSession();
+
             // Enumeration<String> attributeNames2 = session.getAttributeNames();
             // while (attributeNames2.hasMoreElements()) {
-            //     out.println(attributeNames2.nextElement());
+            // out.println(attributeNames2.nextElement());
             // }
 
             String controllerPackage = getServletConfig().getInitParameter("Controllers");
@@ -57,15 +58,15 @@ public class FrontController extends HttpServlet
                     if (files != null) {
                         // out.println(files.length);
                         int confirmation = 0;
+                        int confirmationMethode = 0;
                         for (int i = 0; i < files.length; i++) {
                             File file = files[i];
                             if (file.isFile() && file.getName().endsWith(".class")) {
                                 String nom = file.getName().split("\\.")[0];
                                 // out.println(String.format("%s.%s" , controllerPackage, nom));
-                                Class<?> classe = Class.forName(String.format("%s.%s", controllerPackage, nom));
+                                Class<?> classe = Class.forName(String.format("%s.%s", controllerPackage,nom));
                                 if (classe.isAnnotationPresent(AnnotationController.class)) {
                                     // out.println(classe.getSimpleName());
-
                                     Method[] method = classe.getMethods();
 
                                     ArrayList<String> methodName = new ArrayList<>();
@@ -83,7 +84,7 @@ public class FrontController extends HttpServlet
                                         }
                                     }
 
-                                    Mapping map = new Mapping(classe.getSimpleName(), methodName);
+                                    Mapping map = new Mapping(classe.getSimpleName(), methodName, null);
                                     HashMap<String, Mapping> hashMap = new HashMap<>();
                                     hashMap.put(requestedPage, map);
 
@@ -96,138 +97,109 @@ public class FrontController extends HttpServlet
 
                                     if (indiceAssociation > -1) {
                                         Method methodSimple = this.getMethodSimple(
-                                                hashMap.get(requestedPage).getMethodName().get(indiceAssociation),
+                                        hashMap.get(requestedPage).getMethodName().get(indiceAssociation),
                                                 listeMethode);
-                                        Parameter[] parameters = methodSimple.getParameters();
 
-                                        ArrayList<String> paramExistant = new ArrayList<>();
-                                        ArrayList<Object> valueExistant = new ArrayList<>();
-                                        this.paramValueExistant(listParamName, listParamValue, paramExistant,
-                                                valueExistant, parameters, session);
-
-                                        // out.println("Parametre:");
-                                        // for(String elem:paramExistant) {
-                                        //     out.println(elem);
-                                        // }
-
-                                        // out.println("Valeur:");
-                                        // for(Object elem:valueExistant) {
-                                        //     out.println(elem);
-                                        // }
-
-                                        Field[] attribut = classe.getDeclaredFields();
-
-                                        // for (int index = 0; index < attribut.length; index++) {
-                                        //     out.println(attribut[index].getType().getSimpleName());
-                                        // }
-
-                                        Object o = classe.getDeclaredConstructor().newInstance();
-                                        // out.println(o.getClass().getSimpleName());
-
-                                        this.objectParameter(o, attribut, paramExistant, valueExistant, classe, session);
-
-                                        if (paramExistant.size() > 0 || o != null) {
-                                            ArrayList<Object> objectParameter = new ArrayList<>();
-                                            Parameter[] parameter=methodSimple.getParameters();
-                                            for(Parameter elem:parameter) {
-                                                if (elem.isAnnotationPresent(ObjectParam.class)) {
-                                                    objectParameter.add(o);
+                                        if (this.MethodVerb(methodSimple)) {
+                                            // out.println("URL: "+requestedPage);
+                                            // out.println("Method: "+ request.getMethod());
+                                            VerbAction verbAction = new VerbAction();
+                                            verbAction.setUrl(requestedPage);
+                                            verbAction.setVerb(request.getMethod());
+                                            // out.println("URL: " + verbAction.getUrl());
+                                            // out.println("Method: " + verbAction.getVerb());
+                                            if (methodSimple.isAnnotationPresent(GetMethode.class)
+                                                    && methodSimple.isAnnotationPresent(POST.class)) {
+                                                GetMethode getMethode = methodSimple.getAnnotation(GetMethode.class);
+                                                String url2 = getMethode.value();
+                                                if (verbAction.verification(url2, "POST")) {
+                                                    confirmationMethode = 1;
                                                 }
-                                                else if(elem.isAnnotationPresent(RequestParam.class)) {
-                                                    for (Object elem2 : valueExistant) {
-                                                        objectParameter.add(elem2);
-                                                    }
+                                            } else if (methodSimple.isAnnotationPresent(GetMethode.class)) {
+                                                GetMethode getMethode = methodSimple.getAnnotation(GetMethode.class);
+                                                String url2 = getMethode.value();
+                                                if (verbAction.verification(url2, "GET")) {
+                                                    confirmationMethode = 1;
                                                 }
                                             }
+                                        }
+                                        
+                                        if (confirmationMethode == 1) {
+                                            Parameter[] parameters = methodSimple.getParameters();
 
-                                            for (int index = 0; index < paramExistant.size(); index++) {
-                                                if (paramExistant.get(index).equals("CustomerSession")) {
-                                                    objectParameter.add(valueExistant.get(index));
-                                                }
-                                            }
+                                            ArrayList<String> paramExistant = new ArrayList<>();
+                                            ArrayList<Object> valueExistant = new ArrayList<>();
 
-                                            Object[] allParameter = new Object[objectParameter.size()];
-                                            for (int index = 0; index < allParameter.length; index++) {
-                                                allParameter[index] = objectParameter.get(index);
-                                            }
+                                            this.paramValueExistant(listParamName, listParamValue, paramExistant, valueExistant, parameters, session);
 
-                                            // out.println("Les parametres du methode: ");
-                                            // for (Object elem : allParameter) {
-                                            //     out.println(elem);
+                                            // out.println("Parametre:");
+                                            // for(String elem:paramExistant) {
+                                            // out.println(elem);
                                             // }
 
-                                            Object object2 = this.execMethodParams(classe,
-                                                    hashMap.get(requestedPage).getMethodName().get(indiceAssociation),
-                                                    allParameter);
+                                            // out.println("Valeur:");
+                                            // for(Object elem:valueExistant) {
+                                            // out.println(elem);
+                                            // }
 
-                                            if (classe.isAnnotationPresent(RestAPI.class)) {
-                                                Gson gson = new Gson();
-                                                response.setContentType("application/json;charset=UTF-8");
-                                                String jsonResponse = "";
-                                                if (object2 instanceof ModelView) {
-                                                    ModelView modelAndView = (ModelView) object2;
-                                                    jsonResponse = gson.toJson(modelAndView.getHashMap());
-                                                    out.println(jsonResponse);
-                                                } else {
-                                                    jsonResponse = gson.toJson(object2);
-                                                    out.println(jsonResponse);
-                                                }
-                                            } else {
-                                                ModelView modelView = new ModelView();
-                                                modelView = (ModelView) object2;
+                                            Field[] attribut = classe.getDeclaredFields();
 
-                                                for (Entry<String, Object> entry : modelView.getHashMap().entrySet()) {
-                                                    String key = entry.getKey();
-                                                    Object value = entry.getValue();
-                                                    request.setAttribute(key, value);
-                                                    if (value instanceof CustomerSession) {
-                                                        CustomerSession cs = new CustomerSession();
-                                                        cs = (CustomerSession) value;
-                                                        int existe = 0;
-                                                        for (Entry<String, Object> entry2 : cs.getSession()
-                                                                .entrySet()) {
-                                                            session.setAttribute(entry2.getKey(), entry2.getValue());
-                                                            existe++;
-                                                        }
-                                                        if (existe == 0) {
-                                                            Enumeration<String> attributeNames = session
-                                                                    .getAttributeNames();
-                                                            while (attributeNames.hasMoreElements()) {
-                                                                session.removeAttribute(attributeNames.nextElement());
-                                                            }
+                                            // for (int index = 0; index < attribut.length; index++) {
+                                            // out.println(attribut[index].getType().getSimpleName());
+                                            // }
+
+                                            Object o = classe.getDeclaredConstructor().newInstance();
+                                            // out.println(o.getClass().getSimpleName());
+
+                                            this.objectParameter(o, attribut, paramExistant, valueExistant, classe,
+                                                    session);
+
+                                            if (paramExistant.size() > 0 || o != null) {
+                                                ArrayList<Object> objectParameter = new ArrayList<>();
+                                                Parameter[] parameter = methodSimple.getParameters();
+                                                for (Parameter elem : parameter) {
+                                                    if (elem.isAnnotationPresent(ObjectParam.class)) {
+                                                        objectParameter.add(o);
+                                                    } else if (elem.isAnnotationPresent(RequestParam.class)) {
+                                                        for (Object elem2 : valueExistant) {
+                                                            objectParameter.add(elem2);
                                                         }
                                                     }
                                                 }
 
-                                                request.getRequestDispatcher(modelView.getUrl()).forward(request,
-                                                        response);
-                                            }
-                                        } else {
-                                            Object object2 = this.execMethod(classe, hashMap.get(requestedPage)
-                                                    .getMethodName().get(indiceAssociation));
-                                            if (methodSimple.isAnnotationPresent(RestAPI.class)) {
-                                                Gson gson = new Gson();
-                                                response.setContentType("application/json;charset=UTF-8");
-                                                String jsonResponse;
-                                                if (object2 instanceof ModelView) {
-                                                    ModelView modelAndView = (ModelView) object2;
-                                                    jsonResponse = gson.toJson(modelAndView.getHashMap());
-                                                    out.println(jsonResponse);
-                                                } else {
-                                                    jsonResponse = gson.toJson(object2);
-                                                    out.println(jsonResponse);
+                                                for (int index = 0; index < paramExistant.size(); index++) {
+                                                    if (paramExistant.get(index).equals("CustomerSession")) {
+                                                        objectParameter.add(valueExistant.get(index));
+                                                    }
                                                 }
-                                            }
-                                            else {
-                                                if (typeClasse.get(indiceAssociation).equals("String")) {
-                                                    String execution = String.valueOf(this.execMethod(classe, hashMap
-                                                            .get(requestedPage).getMethodName()
-                                                            .get(indiceAssociation)));
 
-                                                    out.println("Classe: " + classe.getSimpleName());
-                                                    out.println("Method: " + hashMap.get(requestedPage).getMethodName()
-                                                            .get(indiceAssociation));
-                                                    out.println("Reponse de l'execution: " + execution);
+                                                Object[] allParameter = new Object[objectParameter.size()];
+                                                for (int index = 0; index < allParameter.length; index++) {
+                                                    allParameter[index] = objectParameter.get(index);
+                                                }
+
+                                                // out.println("Les parametres du methode: ");
+                                                // for (Object elem : allParameter) {
+                                                // out.println(elem);
+                                                // }
+
+                                                Object object2 = this.execMethodParams(classe,
+                                                        hashMap.get(requestedPage).getMethodName()
+                                                                .get(indiceAssociation),
+                                                        allParameter);
+
+                                                if (methodSimple.isAnnotationPresent(RestAPI.class)) {
+                                                    Gson gson = new Gson();
+                                                    response.setContentType("application/json;charset=UTF-8");
+                                                    String jsonResponse = "";
+                                                    if (object2 instanceof ModelView) {
+                                                        ModelView modelAndView = (ModelView) object2;
+                                                        jsonResponse = gson.toJson(modelAndView.getHashMap());
+                                                        out.println(jsonResponse);
+                                                    } else {
+                                                        jsonResponse = gson.toJson(object2);
+                                                        out.println(jsonResponse);
+                                                    }
                                                 } else {
                                                     ModelView modelView = new ModelView();
                                                     modelView = (ModelView) object2;
@@ -237,23 +209,80 @@ public class FrontController extends HttpServlet
                                                         String key = entry.getKey();
                                                         Object value = entry.getValue();
                                                         request.setAttribute(key, value);
+                                                        if (value instanceof CustomerSession) {
+                                                            CustomerSession cs = new CustomerSession();
+                                                            cs = (CustomerSession) value;
+                                                            int existe = 0;
+                                                            for (Entry<String, Object> entry2 : cs.getSession().entrySet()) {
+                                                                session.setAttribute(entry2.getKey(),entry2.getValue());
+                                                                existe++;
+                                                            }
+                                                            if (existe == 0) {
+                                                                Enumeration<String> attributeNames = session.getAttributeNames();
+                                                                while (attributeNames.hasMoreElements()) {
+                                                                    session.removeAttribute(attributeNames.nextElement());
+                                                                }
+                                                            }
+                                                        }
                                                     }
 
-                                                    request.getRequestDispatcher(modelView.getUrl()).forward(request,
-                                                            response);
+                                                    request.getRequestDispatcher(modelView.getUrl()).forward(request,response);
+                                                }
+                                            } else {
+                                                Object object2 = this.execMethod(classe, hashMap.get(requestedPage)
+                                                        .getMethodName().get(indiceAssociation));
+                                                if (classe.isAnnotationPresent(RestAPI.class)) {
+                                                    Gson gson = new Gson();
+                                                    response.setContentType("application/json;charset=UTF-8");
+                                                    String jsonResponse;
+                                                    if (object2 instanceof ModelView) {
+                                                        ModelView modelAndView = (ModelView) object2;
+                                                        jsonResponse = gson.toJson(modelAndView.getHashMap());
+                                                        out.println(jsonResponse);
+                                                    } else {
+                                                        jsonResponse = gson.toJson(object2);
+                                                        out.println(jsonResponse);
+                                                    }
+                                                } else {
+                                                    if (typeClasse.get(indiceAssociation).equals("String")) {
+                                                        String execution = String.valueOf(
+                                                                this.execMethod(classe, hashMap.get(requestedPage)
+                                                                        .getMethodName().get(indiceAssociation)));
+
+                                                        out.println("Classe: " + classe.getSimpleName());
+                                                        out.println("Method: " + hashMap.get(requestedPage).getMethodName().get(indiceAssociation));
+                                                        out.println("Reponse de l'execution: " + execution);
+                                                    } else {
+                                                        ModelView modelView = new ModelView();
+                                                        modelView = (ModelView) object2;
+
+                                                        for (Entry<String, Object> entry : modelView.getHashMap()
+                                                                .entrySet()) {
+                                                            String key = entry.getKey();
+                                                            Object value = entry.getValue();
+                                                            request.setAttribute(key, value);
+                                                        }
+                                                        request.getRequestDispatcher(modelView.getUrl()).forward(
+                                                                request,
+                                                                response);
+                                                    }
                                                 }
                                             }
-                                        }
 
-                                        // Quitter le scan des classes et confirmer la liaison  de l'url et le methode
-                                        confirmation = 1;
-                                        i = files.length;
+                                            // Quitter le scan des classes et confirmer la liaison de l'url et le
+                                            // methode
+                                            confirmation = 1;
+                                            i = files.length;
+                                        }
                                     }
                                 }
                             }
                         }
-                        if (confirmation==0) {
+                        if (confirmation == 0) {
                             out.println("Aucune methode est lies a l'url tapez");
+                        }
+                        if (confirmationMethode == 0) {
+                            out.println("Methode non valider");
                         }
                     }
                 }
@@ -280,7 +309,7 @@ public class FrontController extends HttpServlet
         return valiny;
     }
 
-    //Sprint3
+    // Sprint3
     public Object execMethod(Class<?> cla, String methodName) throws Exception {
         Method method = cla.getMethod(methodName);
         Object controllerInstance = cla.getDeclaredConstructor().newInstance();
@@ -289,7 +318,6 @@ public class FrontController extends HttpServlet
     }
 
     // Sprint 6
-
     public void getParamNameAndValue(ArrayList<String> listParamName, ArrayList<Object> listParamValue,
             HttpServletRequest request) {
         Enumeration<String> paramNames = request.getParameterNames();
@@ -302,7 +330,7 @@ public class FrontController extends HttpServlet
         }
     }
 
-    // Prendre en tant que type Method le methode lies a l'url 
+    // Prendre en tant que type Method le methode lies a l'url
     public Method getMethodSimple(String methodeAssocie, ArrayList<Method> listeMethode) {
         Method methodSimple = null;
         for (int l = 0; l < listeMethode.size(); l++) {
@@ -332,7 +360,8 @@ public class FrontController extends HttpServlet
 
     // Sprint 7
     public void paramValueExistant(ArrayList<String> listParamName, ArrayList<Object> listParamValue,
-            ArrayList<String> paramExistant, ArrayList<Object> valueExistant, Parameter[] parameters,HttpSession session) {
+            ArrayList<String> paramExistant, ArrayList<Object> valueExistant, Parameter[] parameters,
+            HttpSession session) {
         for (Parameter parameter : parameters) {
             if (parameter.isAnnotationPresent(ObjectParam.class)) {
                 ObjectParam annotation2 = parameter.getAnnotation(ObjectParam.class);
@@ -343,8 +372,7 @@ public class FrontController extends HttpServlet
                         valueExistant.add(listParamValue.get(j));
                     }
                 }
-            }
-            else if(parameter.isAnnotationPresent(RequestParam.class)) {
+            } else if (parameter.isAnnotationPresent(RequestParam.class)) {
                 RequestParam annotation2 = parameter.getAnnotation(RequestParam.class);
                 for (int j = 0; j < listParamName.size(); j++) {
                     if (annotation2.value().equals(listParamName.get(j))) {
@@ -352,8 +380,7 @@ public class FrontController extends HttpServlet
                         valueExistant.add(listParamValue.get(j));
                     }
                 }
-            }
-            else if (parameter.getType()==CustomerSession.class) {
+            } else if (parameter.getType() == CustomerSession.class) {
                 Enumeration<String> attributeNames = session.getAttributeNames();
                 HashMap<String, Object> hashMap = new HashMap<>();
                 CustomerSession customerSession = new CustomerSession();
@@ -367,8 +394,9 @@ public class FrontController extends HttpServlet
             }
         }
     }
-    
-    public void objectParameter(Object o, Field[] attribut, ArrayList<String> paramExistant,ArrayList<Object> valueExistant, Class<?> clazz,HttpSession session) throws Exception {
+
+    public void objectParameter(Object o, Field[] attribut, ArrayList<String> paramExistant,
+            ArrayList<Object> valueExistant, Class<?> clazz, HttpSession session) throws Exception {
         for (Field attrib : attribut) {
             if (attrib.isAnnotationPresent(AnnotationAttribut.class)) {
                 AnnotationAttribut annotation3 = attrib.getAnnotation(AnnotationAttribut.class);
@@ -381,8 +409,7 @@ public class FrontController extends HttpServlet
                         attrib.set(o, ob);
                     }
                 }
-            }
-            else if (attrib.getType() == CustomerSession.class) {
+            } else if (attrib.getType() == CustomerSession.class) {
                 Enumeration<String> attributeNames = session.getAttributeNames();
                 HashMap<String, Object> hashMap = new HashMap<>();
                 CustomerSession customerSession = new CustomerSession();
@@ -391,10 +418,10 @@ public class FrontController extends HttpServlet
                     hashMap.put(attributeName, session.getAttribute(attributeName));
                 }
                 customerSession.setSession(hashMap);
-                
+
                 attrib.setAccessible(true);
-                if (attrib.get(o)==null) {
-                    attrib.set(o,customerSession);
+                if (attrib.get(o) == null) {
+                    attrib.set(o, customerSession);
                 }
             }
         }
@@ -426,6 +453,16 @@ public class FrontController extends HttpServlet
             // Ajouter d'autres types selon vos besoins
             throw new IllegalArgumentException("Type de paramètre non pris en charge: " + targetType.getName());
         }
+    }
+
+    // Sprint 10
+    public boolean MethodVerb(Method method) throws Exception {
+        if (method.isAnnotationPresent(POST.class) && method.isAnnotationPresent(GetMethode.class)) {
+            return true;
+        } else if (method.isAnnotationPresent(GetMethode.class)) {
+            return true;
+        }
+        return false;
     }
 
     @Override
