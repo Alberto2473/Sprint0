@@ -1,7 +1,6 @@
 package Customer;
 
 public class CustomerFile {
-    
     byte[] byteFile;
 
     public CustomerFile() {}
