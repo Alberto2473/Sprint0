@@ -104,18 +104,19 @@ public class FrontController extends HttpServlet {
 
                                     this.getParamNameAndValue(listParamName, listParamValue, request);
 
-                                    out.println("Name: ");
-                                    for (String elem : listParamName) {
-                                        out.println(elem);
-                                    }
-                                    out.println("Value: ");
-                                    for (Object elem : listParamValue) {
-                                        out.println(elem);
-                                    }
+                                    // out.println("Name: ");
+                                    // for (String elem : listParamName) {
+                                    //     out.println(elem);
+                                    // }
+                                    // out.println("Value: ");
+                                    // for (Object elem : listParamValue) {
+                                    //     out.println(elem);
+                                    // }
 
                                     int indiceAssociation = this.associer(requestedPage, annotationMethod);
 
                                     if (indiceAssociation > -1) {
+                                        confirmation = 1;
                                         Method methodSimple = this.getMethodSimple(
                                                 hashMap.get(requestedPage).getMethodName().get(indiceAssociation),
                                                 listeMethode);
@@ -177,118 +178,62 @@ public class FrontController extends HttpServlet {
                                             Object o = classe.getDeclaredConstructor().newInstance();
                                             // out.println(o.getClass().getSimpleName());
 
-                                            this.objectParameter(o, attribut, paramExistant, valueExistant, classe,
-                                                    session);
+                                            int erreurValidation = this.objectParameter(o, attribut, paramExistant, valueExistant, classe,
+                                                    session, out);
+                                            out.println("Nombre d'erreur: "+erreurValidation);
 
-                                            if (paramExistant.size() > 0 || o != null) {
-                                                ArrayList<Object> objectParameter = new ArrayList<>();
-                                                Parameter[] parameter = methodSimple.getParameters();
-                                                for (Parameter elem : parameter) {
-                                                    if (elem.isAnnotationPresent(ObjectParam.class)) {
-                                                        objectParameter.add(o);
-                                                    } else if (elem.isAnnotationPresent(RequestParam.class)) {
-                                                        for (Object elem2 : valueExistant) {
-                                                            objectParameter.add(elem2);
-                                                        }
-                                                    }
-                                                }
-
-                                                for (int index = 0; index < paramExistant.size(); index++) {
-                                                    if (paramExistant.get(index).equals("CustomerSession")) {
-                                                        objectParameter.add(valueExistant.get(index));
-                                                    }
-                                                }
-
-                                                Object[] allParameter = new Object[objectParameter.size()];
-                                                for (int index = 0; index < allParameter.length; index++) {
-                                                    allParameter[index] = objectParameter.get(index);
-                                                }
-
-                                                // out.println("Les parametres du methode: ");
-                                                // for (Object elem : allParameter) {
-                                                //     if (elem instanceof CustomerFile) {
-                                                //         CustomerFile cf = (CustomerFile) elem;
-                                                //         out.println(cf.getByteFile());
-                                                //     }
-                                                //     else {
-                                                //         out.println(elem);
-                                                //     }
-                                                // }
-
-                                                Object object2 = this.execMethodParams(classe, hashMap
-                                                        .get(requestedPage).getMethodName().get(indiceAssociation),
-                                                        allParameter);
-
-                                                if (methodSimple.isAnnotationPresent(RestAPI.class)) {
-                                                    Gson gson = new Gson();
-                                                    response.setContentType("application/json;charset=UTF-8");
-                                                    String jsonResponse = "";
-                                                    if (object2 instanceof ModelView) {
-                                                        ModelView modelAndView = (ModelView) object2;
-                                                        jsonResponse = gson.toJson(modelAndView.getHashMap());
-                                                        out.println(jsonResponse);
-                                                    } else {
-                                                        jsonResponse = gson.toJson(object2);
-                                                        out.println(jsonResponse);
-                                                    }
-                                                } else {
-                                                    ModelView modelView = new ModelView();
-                                                    modelView = (ModelView) object2;
-
-                                                    for (Entry<String, Object> entry : modelView.getHashMap()
-                                                            .entrySet()) {
-                                                        String key = entry.getKey();
-                                                        Object value = entry.getValue();
-                                                        request.setAttribute(key, value);
-                                                        if (value instanceof CustomerSession) {
-                                                            CustomerSession cs = new CustomerSession();
-                                                            cs = (CustomerSession) value;
-                                                            int existe = 0;
-                                                            for (Entry<String, Object> entry2 : cs.getSession()
-                                                                    .entrySet()) {
-                                                                session.setAttribute(entry2.getKey(),
-                                                                        entry2.getValue());
-                                                                existe++;
-                                                            }
-                                                            if (existe == 0) {
-                                                                Enumeration<String> attributeNames = session
-                                                                        .getAttributeNames();
-                                                                while (attributeNames.hasMoreElements()) {
-                                                                    session.removeAttribute(
-                                                                            attributeNames.nextElement());
-                                                                }
+                                            if (erreurValidation == 0) {
+                                                if (paramExistant.size() > 0 || o != null) {
+                                                    ArrayList<Object> objectParameter = new ArrayList<>();
+                                                    Parameter[] parameter = methodSimple.getParameters();
+                                                    for (Parameter elem : parameter) {
+                                                        if (elem.isAnnotationPresent(ObjectParam.class)) {
+                                                            objectParameter.add(o);
+                                                        } else if (elem.isAnnotationPresent(RequestParam.class)) {
+                                                            for (Object elem2 : valueExistant) {
+                                                                objectParameter.add(elem2);
                                                             }
                                                         }
                                                     }
 
-                                                    request.getRequestDispatcher(modelView.getUrl()).forward(request,
-                                                            response);
-                                                }
-                                            } else {
-                                                Object object2 = this.execMethod(classe, hashMap.get(requestedPage)
-                                                        .getMethodName().get(indiceAssociation));
-                                                if (classe.isAnnotationPresent(RestAPI.class)) {
-                                                    Gson gson = new Gson();
-                                                    response.setContentType("application/json;charset=UTF-8");
-                                                    String jsonResponse;
-                                                    if (object2 instanceof ModelView) {
-                                                        ModelView modelAndView = (ModelView) object2;
-                                                        jsonResponse = gson.toJson(modelAndView.getHashMap());
-                                                        out.println(jsonResponse);
-                                                    } else {
-                                                        jsonResponse = gson.toJson(object2);
-                                                        out.println(jsonResponse);
+                                                    for (int index = 0; index < paramExistant.size(); index++) {
+                                                        if (paramExistant.get(index).equals("CustomerSession")) {
+                                                            objectParameter.add(valueExistant.get(index));
+                                                        }
                                                     }
-                                                } else {
-                                                    if (typeClasse.get(indiceAssociation).equals("String")) {
-                                                        String execution = String.valueOf(
-                                                                this.execMethod(classe, hashMap.get(requestedPage)
-                                                                        .getMethodName().get(indiceAssociation)));
 
-                                                        out.println("Classe: " + classe.getSimpleName());
-                                                        out.println("Method: " + hashMap.get(requestedPage)
-                                                                .getMethodName().get(indiceAssociation));
-                                                        out.println("Reponse de l'execution: " + execution);
+                                                    Object[] allParameter = new Object[objectParameter.size()];
+                                                    for (int index = 0; index < allParameter.length; index++) {
+                                                        allParameter[index] = objectParameter.get(index);
+                                                    }
+
+                                                    // out.println("Les parametres du methode: ");
+                                                    // for (Object elem : allParameter) {
+                                                    // if (elem instanceof CustomerFile) {
+                                                    // CustomerFile cf = (CustomerFile) elem;
+                                                    // out.println(cf.getByteFile());
+                                                    // }
+                                                    // else {
+                                                    // out.println(elem);
+                                                    // }
+                                                    // }
+
+                                                    Object object2 = this.execMethodParams(classe, hashMap
+                                                            .get(requestedPage).getMethodName().get(indiceAssociation),
+                                                            allParameter);
+
+                                                    if (methodSimple.isAnnotationPresent(RestAPI.class)) {
+                                                        Gson gson = new Gson();
+                                                        response.setContentType("application/json;charset=UTF-8");
+                                                        String jsonResponse = "";
+                                                        if (object2 instanceof ModelView) {
+                                                            ModelView modelAndView = (ModelView) object2;
+                                                            jsonResponse = gson.toJson(modelAndView.getHashMap());
+                                                            out.println(jsonResponse);
+                                                        } else {
+                                                            jsonResponse = gson.toJson(object2);
+                                                            out.println(jsonResponse);
+                                                        }
                                                     } else {
                                                         ModelView modelView = new ModelView();
                                                         modelView = (ModelView) object2;
@@ -298,16 +243,77 @@ public class FrontController extends HttpServlet {
                                                             String key = entry.getKey();
                                                             Object value = entry.getValue();
                                                             request.setAttribute(key, value);
+                                                            if (value instanceof CustomerSession) {
+                                                                CustomerSession cs = new CustomerSession();
+                                                                cs = (CustomerSession) value;
+                                                                int existe = 0;
+                                                                for (Entry<String, Object> entry2 : cs.getSession()
+                                                                        .entrySet()) {
+                                                                    session.setAttribute(entry2.getKey(),
+                                                                            entry2.getValue());
+                                                                    existe++;
+                                                                }
+                                                                if (existe == 0) {
+                                                                    Enumeration<String> attributeNames = session
+                                                                            .getAttributeNames();
+                                                                    while (attributeNames.hasMoreElements()) {
+                                                                        session.removeAttribute(
+                                                                                attributeNames.nextElement());
+                                                                    }
+                                                                }
+                                                            }
                                                         }
+
                                                         request.getRequestDispatcher(modelView.getUrl())
                                                                 .forward(request, response);
                                                     }
-                                                }
-                                            }
+                                                } else {
+                                                    Object object2 = this.execMethod(classe, hashMap.get(requestedPage)
+                                                            .getMethodName().get(indiceAssociation));
+                                                    if (classe.isAnnotationPresent(RestAPI.class)) {
+                                                        Gson gson = new Gson();
+                                                        response.setContentType("application/json;charset=UTF-8");
+                                                        String jsonResponse;
+                                                        if (object2 instanceof ModelView) {
+                                                            ModelView modelAndView = (ModelView) object2;
+                                                            jsonResponse = gson.toJson(modelAndView.getHashMap());
+                                                            out.println(jsonResponse);
+                                                        } else {
+                                                            jsonResponse = gson.toJson(object2);
+                                                            out.println(jsonResponse);
+                                                        }
+                                                    } else {
+                                                        if (typeClasse.get(indiceAssociation).equals("String")) {
+                                                            String execution = String.valueOf(
+                                                                    this.execMethod(classe, hashMap.get(requestedPage)
+                                                                            .getMethodName().get(indiceAssociation)));
 
-                                            // Quitter le scan des classes et confirmer la liaison de l'url et le methode
-                                            confirmation = 1;
-                                            i = files.length;
+                                                            out.println("Classe: " + classe.getSimpleName());
+                                                            out.println("Method: " + hashMap.get(requestedPage)
+                                                                    .getMethodName().get(indiceAssociation));
+                                                            out.println("Reponse de l'execution: " + execution);
+                                                        } else {
+                                                            ModelView modelView = new ModelView();
+                                                            modelView = (ModelView) object2;
+
+                                                            for (Entry<String, Object> entry : modelView.getHashMap()
+                                                                    .entrySet()) {
+                                                                String key = entry.getKey();
+                                                                Object value = entry.getValue();
+                                                                request.setAttribute(key, value);
+                                                            }
+                                                            request.getRequestDispatcher(modelView.getUrl())
+                                                                    .forward(request, response);
+                                                        }
+                                                    }
+                                                }
+                                                // Quitter le scan des classes et confirmer la liaison de l'url et le
+                                                // methode
+                                                i = files.length;
+                                            }
+                                            else {
+                                                out.println("il y a une erreur de validation");
+                                            }
                                         }
                                     }
                                 }
@@ -357,9 +363,9 @@ public class FrontController extends HttpServlet {
             HttpServletRequest request) throws IOException, ServletException {
         if (request.getContentType() != null && request.getContentType().toLowerCase().startsWith("multipart/")) {
             for (Part part : request.getParts()) {
-                String paramName = part.getName(); // Récupère le "name" de l'input
-                String submittedFileName = part.getSubmittedFileName(); // Récupère le nom du fichier si c'est un
-                                                                        // fichier
+                String paramName = part.getName();                      
+                String submittedFileName = part.getSubmittedFileName(); 
+                                                                        
                 listParamName.add(paramName);
 
                 if (submittedFileName != null) {
@@ -434,9 +440,9 @@ public class FrontController extends HttpServlet {
                 for (int j = 0; j < listParamName.size(); j++) {
                     out.println(listParamName.get(j));
                     if (annotation2.value().equals(listParamName.get(j))) {
-                            out.println("oui mitovy ny inputName sy annotation.value()");
+                            // out.println("oui mitovy ny inputName sy annotation.value()");
                         if (parameter.getType() == CustomerFile.class) {
-                            out.println("oui de type CustomerFile");
+                            // out.println("oui de type CustomerFile");
 
                             byte[] bytes = this.fillCustomerFile(request,listParamName.get(j),out);
                             
@@ -471,8 +477,9 @@ public class FrontController extends HttpServlet {
         }
     }
 
-    public void objectParameter(Object o, Field[] attribut, ArrayList<String> paramExistant,
-            ArrayList<Object> valueExistant, Class<?> clazz, HttpSession session) throws Exception {
+    public int objectParameter(Object o, Field[] attribut, ArrayList<String> paramExistant,
+            ArrayList<Object> valueExistant, Class<?> clazz, HttpSession session, PrintWriter out) throws Exception {
+        int erreurValidation = 0;
         for (Field attrib : attribut) {
             if (attrib.isAnnotationPresent(AnnotationAttribut.class)) {
                 AnnotationAttribut annotation3 = attrib.getAnnotation(AnnotationAttribut.class);
@@ -480,9 +487,39 @@ public class FrontController extends HttpServlet {
 
                 for (int j = 0; j < paramExistant.size(); j++) {
                     if (annotation3.value().equals(paramExistant.get(j))) {
-                        String stringValueExistant = String.valueOf(valueExistant.get(j));
-                        Object ob = this.convertParameterValue(stringValueExistant, attrib.getType());
-                        attrib.set(o, ob);
+                        if (attrib.isAnnotationPresent(Numerique.class)) {
+                            String stringValueExistant = String.valueOf(valueExistant.get(j));
+                            try {
+                                int attribInt = Integer.parseInt(stringValueExistant);
+                                attrib.set(o, attribInt);
+                            } catch (Exception e) {
+                                // e.getMessage();
+                                erreurValidation++;
+                                out.println("valeur invalider sur l'input: " + paramExistant.get(j));
+                            }
+                        } else if (attrib.isAnnotationPresent(Range.class)) {
+                            try {
+                                Range longRange = attrib.getAnnotation(Range.class);
+                                String stringValueExistant = String.valueOf(valueExistant.get(j));
+                                long attribLong = Long.parseLong(stringValueExistant);
+                                if (attribLong < longRange.min() || attribLong > longRange.max()) {
+                                    erreurValidation++;
+                                    out.println("valeur invalider sur l'input: " + paramExistant.get(j));
+                                } else {
+                                    attrib.set(o, attribLong);
+                                }
+                            }
+                            catch (Exception e) {
+                                // e.getMessage();
+                                erreurValidation++;
+                                out.println("valeur invalider sur l'input: " + paramExistant.get(j));
+                            }
+                            
+                        } else {
+                            String stringValueExistant = String.valueOf(valueExistant.get(j));
+                            Object ob = this.convertParameterValue(stringValueExistant, attrib.getType());
+                            attrib.set(o, ob);
+                        }
                     }
                 }
             } else if (attrib.getType() == CustomerSession.class) {
@@ -501,6 +538,7 @@ public class FrontController extends HttpServlet {
                 }
             }
         }
+        return erreurValidation;
     }
 
     private Object convertParameterValue(String paramValue, Class<?> targetType) {
