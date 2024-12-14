@@ -15,11 +15,13 @@ import java.util.Map.Entry;
 
 import MV.ModelView;
 import Map.Mapping;
+import Session.CustomerSession;
 import annotation.*;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 public class FrontController extends HttpServlet
 {
@@ -53,6 +55,13 @@ public class FrontController extends HttpServlet
                                 Class<?> classe = Class.forName(String.format("%s.%s", controllerPackage, nom));
                                 if (classe.isAnnotationPresent(AnnotationController.class)) {
                                     // out.println(classe.getSimpleName());
+                                   
+                                    HttpSession session = request.getSession();
+                                    Enumeration<String> attributeNames2 = session.getAttributeNames();
+                                    while(attributeNames2.hasMoreElements()) {
+                                        out.println(attributeNames2.nextElement());
+                                    }
+
                                     Method[] method = classe.getMethods();
                                     
                                     ArrayList<String> methodName = new ArrayList<>();
@@ -75,32 +84,66 @@ public class FrontController extends HttpServlet
                                     hashMap.put(requestedPage, map);
 
                                     ArrayList<String> listParamName = new ArrayList<>();
-                                    ArrayList<String> listParamValue = new ArrayList<>();
+                                    ArrayList<Object> listParamValue = new ArrayList<>();
 
                                     this.getParamNameAndValue(listParamName, listParamValue, request);
 
                                     int indiceAssociation = this.associer(requestedPage, annotationMethod);
 
                                     if (indiceAssociation > -1) {
-                                        Method methodSimple = this.getMethodSimple(hashMap.get(requestedPage).getMethodName().get(indiceAssociation),listeMethode);
+                                        Method methodSimple = this.getMethodSimple(
+                                                hashMap.get(requestedPage).getMethodName().get(indiceAssociation),
+                                                listeMethode);
                                         Parameter[] parameters = methodSimple.getParameters();
-                                        
-                                        ArrayList<String> paramExistant=new ArrayList<>();
-                                        ArrayList<String> valueExistant=new ArrayList<>();
-                                        this.paramValueExistant(listParamName, listParamValue, paramExistant,
-                                                valueExistant, parameters);
+
+                                        ArrayList<String> paramExistant = new ArrayList<>();
+                                        ArrayList<Object> valueExistant = new ArrayList<>();
+                                        this.paramValueExistant(listParamName, listParamValue, paramExistant, valueExistant, parameters, session);
+
+                                        // out.println("Parametre:");
+                                        // for(String elem:paramExistant) {
+                                        //     out.println(elem);
+                                        // }
+
+                                        // out.println("Valeur:");
+                                        // for(Object elem:valueExistant) {
+                                        //     out.println(elem);
+                                        // }
 
                                         Field[] attribut = classe.getDeclaredFields();
+
+                                        // for (int index = 0; index < attribut.length; index++) {
+                                        //     out.println(attribut[index].getType().getSimpleName());
+                                        // }
+
                                         Object o = classe.getDeclaredConstructor().newInstance();
+                                        // out.println(o.getClass().getSimpleName());
 
-                                        this.objectParameter(o, attribut, paramExistant, valueExistant);
+                                        this.objectParameter(o, attribut, paramExistant, valueExistant, classe, session);
 
-                                        Object[] objectParameter = new Object[1];
-                                        objectParameter[0] = o;
-                                        
-                                        if (objectParameter.length > 0) {
+                                        if (paramExistant.size() > 0 || o!=null) {
+                                            ArrayList<Object> objectParameter = new ArrayList<>();
+                                            objectParameter.add(o);
+                                            
+                                            for (int index = 0; index < paramExistant.size(); index++) {
+                                                if (paramExistant.get(index).equals("CustomerSession")) {
+                                                    objectParameter.add(valueExistant.get(index));
+                                                }
+                                            }
 
-                                            Object object2 = this.execMethodParams(classe, hashMap.get(requestedPage).getMethodName().get(indiceAssociation),objectParameter);
+                                            Object[] allParameter = new Object[objectParameter.size()];
+                                            for (int index = 0; index < allParameter.length; index++) {
+                                                allParameter[index] = objectParameter.get(index);
+                                            }
+
+                                            // out.println("Les parametres des methodes: ");
+                                            // for (Object elem : allParameter) {
+                                            //     out.println(elem);
+                                            // }
+
+                                            Object object2 = this.execMethodParams(classe,
+                                                    hashMap.get(requestedPage).getMethodName().get(indiceAssociation),
+                                                    allParameter);
 
                                             ModelView modelView = new ModelView();
                                             modelView = (ModelView) object2;
@@ -109,24 +152,58 @@ public class FrontController extends HttpServlet
                                                 String key = entry.getKey();
                                                 Object value = entry.getValue();
                                                 request.setAttribute(key, value);
+                                                if (value instanceof CustomerSession) {
+                                                    CustomerSession cs = new CustomerSession();
+                                                    cs = (CustomerSession) value;
+                                                    int existe = 0;
+                                                    for (Entry<String, Object> entry2 : cs.getSession().entrySet()) {
+                                                        session.setAttribute(entry2.getKey(), entry2.getValue());
+                                                        existe++;
+                                                    }
+                                                    if (existe == 0) {
+                                                        Enumeration<String> attributeNames = session
+                                                                .getAttributeNames();
+                                                        while (attributeNames.hasMoreElements()) {
+                                                            session.removeAttribute(attributeNames.nextElement());
+                                                        }
+                                                    }
+                                                }
                                             }
+
+                                            // Set<String> key = modelView.getHashMap().keySet();
+
+                                            // for (String elem : key) {
+                                            // out.println("Key: " + elem);
+                                            // out.println("Valeur: " + modelView.getHashMap().get(elem));
+                                            // session.setAttribute(elem, modelView.getHashMap().get(elem));
+                                            // }
 
                                             // out.println("url: "+modelView.getUrl());
                                             // out.println(request.getAttribute("reponse"));
 
+                                            // out.println("Session: ");
+                                            // Enumeration<String> attributeNames = session.getAttributeNames();
+                                            // while (attributeNames.hasMoreElements()) {
+                                            //     String attributeName = attributeNames.nextElement();
+                                            //     out.println("Name session: "+attributeName);
+                                            //     out.println(session.getAttribute(attributeName));
+                                            // }
+
                                             request.getRequestDispatcher(modelView.getUrl()).forward(request, response);
-                                        }
-                                        else {
+                                        
+                                        } else {
                                             if (typeClasse.get(indiceAssociation).equals("String")) {
-                                                String execution = String.valueOf(this.execMethod(classe,hashMap.get(requestedPage).getMethodName().get(indiceAssociation)));
+                                                String execution = String.valueOf(this.execMethod(classe, hashMap
+                                                        .get(requestedPage).getMethodName().get(indiceAssociation)));
 
                                                 out.println("Classe: " + classe.getSimpleName());
-                                                out.println("Method: " + hashMap.get(requestedPage).getMethodName().get(indiceAssociation));
-                                                out.println("Reponse de l'execution: " + execution);    
-                                            }
-                                            else {
-                                                Object object2=this.execMethod(classe,hashMap.get(requestedPage).getMethodName().get(indiceAssociation));
-                                                
+                                                out.println("Method: " + hashMap.get(requestedPage).getMethodName()
+                                                        .get(indiceAssociation));
+                                                out.println("Reponse de l'execution: " + execution);
+                                            } else {
+                                                Object object2 = this.execMethod(classe, hashMap.get(requestedPage)
+                                                        .getMethodName().get(indiceAssociation));
+
                                                 ModelView modelView = new ModelView();
                                                 modelView = (ModelView) object2;
 
@@ -136,10 +213,19 @@ public class FrontController extends HttpServlet
                                                     request.setAttribute(key, value);
                                                 }
 
-                                                request.getRequestDispatcher(modelView.getUrl()).forward(request, response);
+                                                // Enumeration<String> attributeNames = session.getAttributeNames();
+                                                // while (attributeNames.hasMoreElements()) {
+                                                //     String attributeName = attributeNames.nextElement();
+                                                //     String key = this.getKeyByValue(modelView.getHashMap(),
+                                                //             session.getAttribute(attributeName));
+                                                //     session.setAttribute(key, modelView.getHashMap().get(key));
+                                                // }
+
+                                                request.getRequestDispatcher(modelView.getUrl()).forward(request,
+                                                        response);
                                             }
                                         }
-                                        
+
                                         // Quitter le scan des classes et confirmer la liaison  de l'url et le methode
                                         confirmation = 1;
                                         i = files.length;
@@ -185,7 +271,7 @@ public class FrontController extends HttpServlet
 
     // Sprint 6
 
-    public void getParamNameAndValue(ArrayList<String> listParamName, ArrayList<String> listParamValue,
+    public void getParamNameAndValue(ArrayList<String> listParamName, ArrayList<Object> listParamValue,
             HttpServletRequest request) {
         Enumeration<String> paramNames = request.getParameterNames();
         while (paramNames.hasMoreElements()) {
@@ -208,8 +294,7 @@ public class FrontController extends HttpServlet
         return methodSimple;
     }
     
-    public Object[] listeObjet(ArrayList<String> listParamName, ArrayList<String> listParamValue,
-            Parameter[] parameters) {
+    public Object[] listeObjet(ArrayList<String> listParamName, ArrayList<Object> listParamValue,Parameter[] parameters) {
         ArrayList<Object> listeObjet = new ArrayList<>();
 
         for (Parameter parameter : parameters) {
@@ -250,8 +335,8 @@ public class FrontController extends HttpServlet
     }
 
     // Sprint 7
-    public void paramValueExistant(ArrayList<String> listParamName, ArrayList<String> listParamValue,
-            ArrayList<String> paramExistant, ArrayList<String> valueExistant, Parameter[] parameters) {
+    public void paramValueExistant(ArrayList<String> listParamName, ArrayList<Object> listParamValue,
+            ArrayList<String> paramExistant, ArrayList<Object> valueExistant, Parameter[] parameters,HttpSession session) {
         for (Parameter parameter : parameters) {
             if (parameter.isAnnotationPresent(ObjectParam.class)) {
                 ObjectParam annotation2 = parameter.getAnnotation(ObjectParam.class);
@@ -263,21 +348,48 @@ public class FrontController extends HttpServlet
                     }
                 }
             }
+            else if (parameter.getType()==CustomerSession.class) {
+                Enumeration<String> attributeNames = session.getAttributeNames();
+                HashMap<String, Object> hashMap = new HashMap<>();
+                CustomerSession customerSession = new CustomerSession();
+                while (attributeNames.hasMoreElements()) {
+                    String attributeName = attributeNames.nextElement();
+                    hashMap.put(attributeName, session.getAttribute(attributeName));
+                }
+                customerSession.setSession(hashMap);
+                paramExistant.add("CustomerSession");
+                valueExistant.add(customerSession);
+            }
         }
     }
     
-    public void objectParameter(Object o,Field[] attribut,ArrayList<String> paramExistant,ArrayList<String> valueExistant) throws Exception {
+    public void objectParameter(Object o, Field[] attribut, ArrayList<String> paramExistant,ArrayList<Object> valueExistant, Class<?> clazz,HttpSession session) throws Exception {
         for (Field attrib : attribut) {
             if (attrib.isAnnotationPresent(AnnotationAttribut.class)) {
                 AnnotationAttribut annotation3 = attrib.getAnnotation(AnnotationAttribut.class);
-                // out.println("Annotation: " + annotation3.value());
                 attrib.setAccessible(true);
+
                 for (int j = 0; j < paramExistant.size(); j++) {
                     if (annotation3.value().equals(paramExistant.get(j))) {
-                        Object ob = this.convertParameterValue(valueExistant.get(j), attrib.getType());
+                        String stringValueExistant = String.valueOf(valueExistant.get(j));
+                        Object ob = this.convertParameterValue(stringValueExistant, attrib.getType());
                         attrib.set(o, ob);
-                        // out.println(attrib.get(o));
                     }
+                }
+            }
+            else if (attrib.getType() == CustomerSession.class) {
+                Enumeration<String> attributeNames = session.getAttributeNames();
+                HashMap<String, Object> hashMap = new HashMap<>();
+                CustomerSession customerSession = new CustomerSession();
+                while (attributeNames.hasMoreElements()) {
+                    String attributeName = attributeNames.nextElement();
+                    hashMap.put(attributeName, session.getAttribute(attributeName));
+                }
+                customerSession.setSession(hashMap);
+                
+                attrib.setAccessible(true);
+                if (attrib.get(o)==null) {
+                    attrib.set(o,customerSession);
                 }
             }
         }
@@ -310,7 +422,15 @@ public class FrontController extends HttpServlet
             throw new IllegalArgumentException("Type de paramètre non pris en charge: " + targetType.getName());
         }
     }
-    
+
+    // Sprint 8
+    // private String capitalizeFirstLetter(String str) {
+    //     if (str == null || str.isEmpty()) {
+    //         return str;
+    //     }
+    //     return str.substring(0, 1).toUpperCase() + str.substring(1);
+    // }
+
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
