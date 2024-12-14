@@ -3,9 +3,11 @@ package mg.de.prom16;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.net.URL;
+import java.sql.Date;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -13,9 +15,7 @@ import java.util.Map.Entry;
 
 import MV.ModelView;
 import Map.Mapping;
-import annotation.AnnotationController;
-import annotation.GetMethode;
-import annotation.RequestParam;
+import annotation.*;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -31,7 +31,7 @@ public class FrontController extends HttpServlet
             if (requestedPage == null) {
                 requestedPage = request.getServletPath();
             }
-            out.println("www.Sprint5.com" + requestedPage);
+            out.println("www.Sprint.com" + requestedPage);
 
             String controllerPackage = getServletConfig().getInitParameter("Controllers");
             // out.println(controllerPackage);
@@ -54,10 +54,12 @@ public class FrontController extends HttpServlet
                                 if (classe.isAnnotationPresent(AnnotationController.class)) {
                                     // out.println(classe.getSimpleName());
                                     Method[] method = classe.getMethods();
+                                    
                                     ArrayList<String> methodName = new ArrayList<>();
                                     ArrayList<String> annotationMethod = new ArrayList<>();
                                     ArrayList<String> typeClasse = new ArrayList<>();
                                     ArrayList<Method> listeMethode = new ArrayList<>();
+                                    
                                     for (int j = 0; j < method.length; j++) {
                                         if (method[j].isAnnotationPresent(GetMethode.class)) {
                                             GetMethode annotation = method[j].getAnnotation(GetMethode.class);
@@ -82,8 +84,22 @@ public class FrontController extends HttpServlet
                                     if (indiceAssociation > -1) {
                                         Method methodSimple = this.getMethodSimple(hashMap.get(requestedPage).getMethodName().get(indiceAssociation),listeMethode);
                                         Parameter[] parameters = methodSimple.getParameters();
-                                        Object[] objectParameter = this.listeObjet(listParamName, listParamValue,parameters);
-                                        if (objectParameter.length>0) {
+                                        
+                                        ArrayList<String> paramExistant=new ArrayList<>();
+                                        ArrayList<String> valueExistant=new ArrayList<>();
+                                        this.paramValueExistant(listParamName, listParamValue, paramExistant,
+                                                valueExistant, parameters);
+
+                                        Field[] attribut = classe.getDeclaredFields();
+                                        Object o = classe.getDeclaredConstructor().newInstance();
+
+                                        this.objectParameter(o, attribut, paramExistant, valueExistant);
+
+                                        Object[] objectParameter = new Object[1];
+                                        objectParameter[0] = o;
+                                        
+                                        if (objectParameter.length > 0) {
+
                                             Object object2 = this.execMethodParams(classe, hashMap.get(requestedPage).getMethodName().get(indiceAssociation),objectParameter);
 
                                             ModelView modelView = new ModelView();
@@ -233,6 +249,68 @@ public class FrontController extends HttpServlet
         return result;
     }
 
+    // Sprint 7
+    public void paramValueExistant(ArrayList<String> listParamName, ArrayList<String> listParamValue,
+            ArrayList<String> paramExistant, ArrayList<String> valueExistant, Parameter[] parameters) {
+        for (Parameter parameter : parameters) {
+            if (parameter.isAnnotationPresent(ObjectParam.class)) {
+                ObjectParam annotation2 = parameter.getAnnotation(ObjectParam.class);
+                for (int j = 0; j < listParamName.size(); j++) {
+                    String[] splitParamName = listParamName.get(j).split("\\.");
+                    if (annotation2.value().equals(splitParamName[0])) {
+                        paramExistant.add(splitParamName[1]);
+                        valueExistant.add(listParamValue.get(j));
+                    }
+                }
+            }
+        }
+    }
+    
+    public void objectParameter(Object o,Field[] attribut,ArrayList<String> paramExistant,ArrayList<String> valueExistant) throws Exception {
+        for (Field attrib : attribut) {
+            if (attrib.isAnnotationPresent(AnnotationAttribut.class)) {
+                AnnotationAttribut annotation3 = attrib.getAnnotation(AnnotationAttribut.class);
+                // out.println("Annotation: " + annotation3.value());
+                attrib.setAccessible(true);
+                for (int j = 0; j < paramExistant.size(); j++) {
+                    if (annotation3.value().equals(paramExistant.get(j))) {
+                        Object ob = this.convertParameterValue(valueExistant.get(j), attrib.getType());
+                        attrib.set(o, ob);
+                        // out.println(attrib.get(o));
+                    }
+                }
+            }
+        }
+    }
+
+    private Object convertParameterValue(String paramValue, Class<?> targetType) {
+        if (paramValue == null) {
+            return null;
+        }
+        if (targetType.equals(String.class)) {
+            return paramValue;
+        } else if (targetType.equals(int.class) || targetType.equals(Integer.class)) {
+            return Integer.parseInt(paramValue);
+        } else if (targetType.equals(double.class) || targetType.equals(Double.class)) {
+            return Double.parseDouble(paramValue);
+        } else if (targetType.equals(Date.class)) {
+            return Date.valueOf(paramValue);
+        } else if (targetType.equals(boolean.class) || targetType.equals(Boolean.class)) {
+            return Boolean.parseBoolean(paramValue);
+        } else if (targetType.equals(long.class) || targetType.equals(Long.class)) {
+            return Long.parseLong(paramValue);
+        } else if (targetType.equals(float.class) || targetType.equals(Float.class)) {
+            return Float.parseFloat(paramValue);
+        } else if (targetType.equals(short.class) || targetType.equals(Short.class)) {
+            return Short.parseShort(paramValue);
+        } else if (targetType.equals(byte.class) || targetType.equals(Byte.class)) {
+            return Byte.parseByte(paramValue);
+        } else {
+            // Ajouter d'autres types selon vos besoins
+            throw new IllegalArgumentException("Type de paramètre non pris en charge: " + targetType.getName());
+        }
+    }
+    
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
