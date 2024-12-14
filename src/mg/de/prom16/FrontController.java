@@ -7,7 +7,9 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Map.Entry;
 
+import MV.ModelView;
 import Map.Mapping;
 import annotation.AnnotationController;
 import annotation.GetMethode;
@@ -51,11 +53,13 @@ public class FrontController extends HttpServlet
                                     Method[] method = classe.getMethods();
                                     ArrayList<String> methodName = new ArrayList<>();
                                     ArrayList<String> annotationMethod = new ArrayList<>();
+                                    ArrayList<String> typeClasse=new ArrayList<>();
                                     for (int j = 0; j < method.length; j++) {
                                         if (method[j].isAnnotationPresent(GetMethode.class)) {
                                             GetMethode annotation = method[j].getAnnotation(GetMethode.class);
                                             methodName.add(method[j].getName());
                                             annotationMethod.add(annotation.value());
+                                            typeClasse.add(method[j].getReturnType().getSimpleName());
                                         }
                                     }
 
@@ -65,11 +69,27 @@ public class FrontController extends HttpServlet
 
                                     int indiceAssociation = this.associer(requestedPage, annotationMethod);
                                     if (indiceAssociation != -1) {
-                                        String execution = String.valueOf(this.execMethod(classe, hashMap.get(requestedPage).getMethodName().get(indiceAssociation)));
-                                        
-                                        out.println("Classe: " + classe.getSimpleName());
-                                        out.println("Method: "+ hashMap.get(requestedPage).getMethodName().get(indiceAssociation));
-                                        out.println("Reponse de l'execution: " + execution);
+                                        if (typeClasse.get(indiceAssociation).equals("String")) {
+                                            String execution = String.valueOf(this.execMethod(classe,hashMap.get(requestedPage).getMethodName().get(indiceAssociation)));
+
+                                            out.println("Classe: " + classe.getSimpleName());
+                                            out.println("Method: " + hashMap.get(requestedPage).getMethodName().get(indiceAssociation));
+                                            out.println("Reponse de l'execution: " + execution);    
+                                        }
+                                        else {
+                                            Object object2=this.execMethod(classe,hashMap.get(requestedPage).getMethodName().get(indiceAssociation));
+                                            
+                                            ModelView modelView = new ModelView();
+                                            modelView = (ModelView) object2;
+
+                                            for (Entry<String, Object> entry : modelView.getHashMap().entrySet()) {
+                                                String key = entry.getKey();
+                                                Object value = entry.getValue();
+                                                request.setAttribute(key, value);
+                                            }
+
+                                            request.getRequestDispatcher(modelView.getUrl()).forward(request, response);
+                                        }
                                         
                                         // Quitter le scan des classes et confirmer la liaison  de l'url et le methode
                                         confirmation = 1;
@@ -85,7 +105,10 @@ public class FrontController extends HttpServlet
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            out.println(e.getMessage());
+            for (StackTraceElement elem : e.getStackTrace()) {
+                out.println(elem.toString());
+            }
         } finally {
             out.close();
         }
