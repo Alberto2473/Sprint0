@@ -4,13 +4,15 @@ import java.util.HashMap;
 
 public class ModelView {
     String url;
+    String urlError;
     HashMap<String,Object> hashMap= new HashMap<>();
     
     public ModelView() {
     }
 
-    public ModelView(String url, HashMap<String, Object> hashMap) {
+    public ModelView(String url, String urlError, HashMap<String, Object> hashMap) {
         this.setUrl(url);
+        this.setUrlError(urlError);
         this.setHashMap(hashMap);
     }
 
@@ -20,6 +22,14 @@ public class ModelView {
 
     public void setUrl(String url) {
         this.url = url;
+    }
+
+    public String getUrlError() {
+        return this.urlError;
+    }
+
+    public void setUrlError(String urlError) {
+        this.urlError = urlError;
     }
 
     public HashMap<String, Object> getHashMap() {
