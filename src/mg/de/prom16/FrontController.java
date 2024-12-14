@@ -6,8 +6,10 @@ import java.io.PrintWriter;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map.Entry;
 
-import Map.HashMap;
+import MV.ModelView;
 import Map.Mapping;
 import annotation.AnnotationController;
 import annotation.GetMethode;
@@ -18,95 +20,115 @@ import jakarta.servlet.http.HttpServletResponse;
 
 public class FrontController extends HttpServlet
 {
-    protected String execMethod(Class<?> cla, String methodName) throws Exception {
-        String valiny = "";
-    
-        // Trouver la méthode avec le nom methodName et sans paramètres
-        Method method = cla.getMethod(methodName);
-        
-        // Créer une instance de la classe cla (Controller) pour invoquer la méthode
-        Object controllerInstance = cla.getDeclaredConstructor().newInstance();
-    
-        // Appeler la méthode sur l'instance de controllerInstance sans aucun argument
-        Object result = method.invoke(controllerInstance);
-    
-        // Convertir le résultat en chaîne de caractères
-        valiny = String.valueOf(result);
-    
-        return valiny;
-    }
-
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-            try {
-            PrintWriter out = response.getWriter();
+        PrintWriter out = response.getWriter();
+        try {
             String requestedPage = request.getPathInfo();
+            if (requestedPage == null) {
+                requestedPage = request.getServletPath();
+            }
             out.println("www.Sprint.com" + requestedPage);
 
             String controllerPackage = getServletConfig().getInitParameter("Controllers");
-            // out.println("Package: "+controllerPackage);
+            // out.println(controllerPackage);
             ClassLoader loader = Thread.currentThread().getContextClassLoader();
             URL url = loader.getResource(controllerPackage);
 
-            if(url != null){
+            if (url != null) {
                 File directory = new File(url.getFile().replace("%20", " "));
-                if(directory.exists() && directory.isDirectory()) {
+                if (directory.exists() && directory.isDirectory()) {
                     File[] files = directory.listFiles();
-                    if(files!=null){
-                        int confirmation=0;
-                        for(int i=0 ; i<files.length ; i++){
+                    if (files != null) {
+                        // out.println(files.length);
+                        int confirmation = 0;
+                        for (int i = 0; i < files.length; i++) {
                             File file = files[i];
-                            if(file.isFile() && file.getName().endsWith(".class")){
+                            if (file.isFile() && file.getName().endsWith(".class")) {
                                 String nom = file.getName().split("\\.")[0];
-                                Class<?> classe = Class.forName(String.format("%s.%s" , controllerPackage, nom));
-                                if(classe.isAnnotationPresent(AnnotationController.class)){
-                                    Method[] method=classe.getMethods();
-                                    ArrayList<String> methodName=new ArrayList<>();
-                                    
+                                // out.println(String.format("%s.%s" , controllerPackage, nom));
+                                Class<?> classe = Class.forName(String.format("%s.%s", controllerPackage, nom));
+                                if (classe.isAnnotationPresent(AnnotationController.class)) {
+                                    // out.println(classe.getSimpleName());
+                                    Method[] method = classe.getMethods();
+                                    ArrayList<String> methodName = new ArrayList<>();
+                                    ArrayList<String> annotationMethod = new ArrayList<>();
+                                    ArrayList<String> typeClasse=new ArrayList<>();
                                     for (int j = 0; j < method.length; j++) {
-                                        if(method[j].isAnnotationPresent(GetMethode.class))
-                                        {
-                                            GetMethode annotation=method[j].getAnnotation(GetMethode.class);
-                                            methodName.add(annotation.value());
+                                        if (method[j].isAnnotationPresent(GetMethode.class)) {
+                                            GetMethode annotation = method[j].getAnnotation(GetMethode.class);
+                                            methodName.add(method[j].getName());
+                                            annotationMethod.add(annotation.value());
+                                            typeClasse.add(method[j].getReturnType().getSimpleName());
                                         }
                                     }
 
-                                    Mapping map=new Mapping(classe.getSimpleName(),methodName);
-                                    // out.println("Classe: "+map.getClassName());
-                                    // out.println("Method: ");
-                                    // for (int j = 0; j < map.getMethodName().size(); j++) {
-                                    //     out.println(map.getMethodName().get(j));
-                                    // }
-                                    HashMap hashMap=new HashMap(requestedPage,map);
-                                    // out.println("Url: "+hashMap.getUrl());
-                                    // out.println("Mapping: "+hashMap.getMapping().getMethodName().get(0));
-                                    String leMethode=hashMap.leMethode();
-                                    String association=hashMap.associer();
-                                    // out.println("Association: "+association);
-                                    // out.println("Methode: "+leMethode);
-                                    if (association.equals("aucun methode lies a l'url")==false) {
-                                        out.println("Classe: "+classe.getSimpleName());
-                                        out.println("Annotation: "+association);
-                                        out.println("Method: "+leMethode);
-                                        String execution=this.execMethod(classe, leMethode);
-                                        out.println("Reponse du methode:"+ execution);
-                                        confirmation=1;
-                                        i=files.length;
+                                    Mapping map = new Mapping(classe.getSimpleName(), methodName);
+                                    HashMap<String, Mapping> hashMap = new HashMap<>();
+                                    hashMap.put(requestedPage, map);
+
+                                    int indiceAssociation = this.associer(requestedPage, annotationMethod);
+                                    if (indiceAssociation != -1) {
+                                        if (typeClasse.get(indiceAssociation).equals("String")) {
+                                            String execution = String.valueOf(this.execMethod(classe,hashMap.get(requestedPage).getMethodName().get(indiceAssociation)));
+
+                                            out.println("Classe: " + classe.getSimpleName());
+                                            out.println("Method: " + hashMap.get(requestedPage).getMethodName().get(indiceAssociation));
+                                            out.println("Reponse de l'execution: " + execution);    
+                                        }
+                                        else {
+                                            Object object2=this.execMethod(classe,hashMap.get(requestedPage).getMethodName().get(indiceAssociation));
+                                            
+                                            ModelView modelView = new ModelView();
+                                            modelView = (ModelView) object2;
+
+                                            for (Entry<String, Object> entry : modelView.getHashMap().entrySet()) {
+                                                String key = entry.getKey();
+                                                Object value = entry.getValue();
+                                                request.setAttribute(key, value);
+                                            }
+
+                                            request.getRequestDispatcher(modelView.getUrl()).forward(request, response);
+                                        }
+                                        
+                                        // Quitter le scan des classes et confirmer la liaison  de l'url et le methode
+                                        confirmation = 1;
+                                        i = files.length;
                                     }
                                 }
                             }
                         }
                         if (confirmation==0) {
-                            out.println("aucun methode lies a l'url");
+                            out.println("Aucune methode est lies a l'url tapez");
                         }
                     }
                 }
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
             out.close();
         }
-        catch(Exception e) {
-            e.printStackTrace();
+    }
+
+    // Sprint 2
+    public int associer(String url, ArrayList<String> listAnnotationMethod) {
+        int valiny = -1;
+        for (int i = 0; i < listAnnotationMethod.size(); i++) {
+            String compare = listAnnotationMethod.get(i);
+            if (url.equals(compare)) {
+                valiny = i;
+            }
         }
+        return valiny;
+    }
+
+    //Sprint3
+    protected Object execMethod(Class<?> cla, String methodName) throws Exception {
+        Method method = cla.getMethod(methodName);
+        Object controllerInstance = cla.getDeclaredConstructor().newInstance();
+        Object result = method.invoke(controllerInstance);
+        return result;
     }
 
     @Override
