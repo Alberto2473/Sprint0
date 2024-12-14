@@ -13,6 +13,8 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
+import com.google.gson.Gson;
+
 import MV.ModelView;
 import Map.Mapping;
 import Session.CustomerSession;
@@ -28,12 +30,20 @@ public class FrontController extends HttpServlet
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         PrintWriter out = response.getWriter();
+        
+        response.setContentType("text/html;charset=UTF-8");
         try {
             String requestedPage = request.getPathInfo();
             if (requestedPage == null) {
                 requestedPage = request.getServletPath();
             }
-            out.println("www.Sprint.com" + requestedPage);
+            // out.println("www.Sprint.com" + requestedPage);
+
+            HttpSession session = request.getSession();
+            // Enumeration<String> attributeNames2 = session.getAttributeNames();
+            // while (attributeNames2.hasMoreElements()) {
+            //     out.println(attributeNames2.nextElement());
+            // }
 
             String controllerPackage = getServletConfig().getInitParameter("Controllers");
             // out.println(controllerPackage);
@@ -55,20 +65,14 @@ public class FrontController extends HttpServlet
                                 Class<?> classe = Class.forName(String.format("%s.%s", controllerPackage, nom));
                                 if (classe.isAnnotationPresent(AnnotationController.class)) {
                                     // out.println(classe.getSimpleName());
-                                   
-                                    HttpSession session = request.getSession();
-                                    Enumeration<String> attributeNames2 = session.getAttributeNames();
-                                    while(attributeNames2.hasMoreElements()) {
-                                        out.println(attributeNames2.nextElement());
-                                    }
 
                                     Method[] method = classe.getMethods();
-                                    
+
                                     ArrayList<String> methodName = new ArrayList<>();
                                     ArrayList<String> annotationMethod = new ArrayList<>();
                                     ArrayList<String> typeClasse = new ArrayList<>();
                                     ArrayList<Method> listeMethode = new ArrayList<>();
-                                    
+
                                     for (int j = 0; j < method.length; j++) {
                                         if (method[j].isAnnotationPresent(GetMethode.class)) {
                                             GetMethode annotation = method[j].getAnnotation(GetMethode.class);
@@ -98,7 +102,8 @@ public class FrontController extends HttpServlet
 
                                         ArrayList<String> paramExistant = new ArrayList<>();
                                         ArrayList<Object> valueExistant = new ArrayList<>();
-                                        this.paramValueExistant(listParamName, listParamValue, paramExistant, valueExistant, parameters, session);
+                                        this.paramValueExistant(listParamName, listParamValue, paramExistant,
+                                                valueExistant, parameters, session);
 
                                         // out.println("Parametre:");
                                         // for(String elem:paramExistant) {
@@ -121,10 +126,20 @@ public class FrontController extends HttpServlet
 
                                         this.objectParameter(o, attribut, paramExistant, valueExistant, classe, session);
 
-                                        if (paramExistant.size() > 0 || o!=null) {
+                                        if (paramExistant.size() > 0 || o != null) {
                                             ArrayList<Object> objectParameter = new ArrayList<>();
-                                            objectParameter.add(o);
-                                            
+                                            Parameter[] parameter=methodSimple.getParameters();
+                                            for(Parameter elem:parameter) {
+                                                if (elem.isAnnotationPresent(ObjectParam.class)) {
+                                                    objectParameter.add(o);
+                                                }
+                                                else if(elem.isAnnotationPresent(RequestParam.class)) {
+                                                    for (Object elem2 : valueExistant) {
+                                                        objectParameter.add(elem2);
+                                                    }
+                                                }
+                                            }
+
                                             for (int index = 0; index < paramExistant.size(); index++) {
                                                 if (paramExistant.get(index).equals("CustomerSession")) {
                                                     objectParameter.add(valueExistant.get(index));
@@ -136,7 +151,7 @@ public class FrontController extends HttpServlet
                                                 allParameter[index] = objectParameter.get(index);
                                             }
 
-                                            // out.println("Les parametres des methodes: ");
+                                            // out.println("Les parametres du methode: ");
                                             // for (Object elem : allParameter) {
                                             //     out.println(elem);
                                             // }
@@ -145,65 +160,19 @@ public class FrontController extends HttpServlet
                                                     hashMap.get(requestedPage).getMethodName().get(indiceAssociation),
                                                     allParameter);
 
-                                            ModelView modelView = new ModelView();
-                                            modelView = (ModelView) object2;
-
-                                            for (Entry<String, Object> entry : modelView.getHashMap().entrySet()) {
-                                                String key = entry.getKey();
-                                                Object value = entry.getValue();
-                                                request.setAttribute(key, value);
-                                                if (value instanceof CustomerSession) {
-                                                    CustomerSession cs = new CustomerSession();
-                                                    cs = (CustomerSession) value;
-                                                    int existe = 0;
-                                                    for (Entry<String, Object> entry2 : cs.getSession().entrySet()) {
-                                                        session.setAttribute(entry2.getKey(), entry2.getValue());
-                                                        existe++;
-                                                    }
-                                                    if (existe == 0) {
-                                                        Enumeration<String> attributeNames = session
-                                                                .getAttributeNames();
-                                                        while (attributeNames.hasMoreElements()) {
-                                                            session.removeAttribute(attributeNames.nextElement());
-                                                        }
-                                                    }
+                                            if (classe.isAnnotationPresent(RestAPI.class)) {
+                                                Gson gson = new Gson();
+                                                response.setContentType("application/json;charset=UTF-8");
+                                                String jsonResponse = "";
+                                                if (object2 instanceof ModelView) {
+                                                    ModelView modelAndView = (ModelView) object2;
+                                                    jsonResponse = gson.toJson(modelAndView.getHashMap());
+                                                    out.println(jsonResponse);
+                                                } else {
+                                                    jsonResponse = gson.toJson(object2);
+                                                    out.println(jsonResponse);
                                                 }
-                                            }
-
-                                            // Set<String> key = modelView.getHashMap().keySet();
-
-                                            // for (String elem : key) {
-                                            // out.println("Key: " + elem);
-                                            // out.println("Valeur: " + modelView.getHashMap().get(elem));
-                                            // session.setAttribute(elem, modelView.getHashMap().get(elem));
-                                            // }
-
-                                            // out.println("url: "+modelView.getUrl());
-                                            // out.println(request.getAttribute("reponse"));
-
-                                            // out.println("Session: ");
-                                            // Enumeration<String> attributeNames = session.getAttributeNames();
-                                            // while (attributeNames.hasMoreElements()) {
-                                            //     String attributeName = attributeNames.nextElement();
-                                            //     out.println("Name session: "+attributeName);
-                                            //     out.println(session.getAttribute(attributeName));
-                                            // }
-
-                                            request.getRequestDispatcher(modelView.getUrl()).forward(request, response);
-                                        
-                                        } else {
-                                            if (typeClasse.get(indiceAssociation).equals("String")) {
-                                                String execution = String.valueOf(this.execMethod(classe, hashMap
-                                                        .get(requestedPage).getMethodName().get(indiceAssociation)));
-
-                                                out.println("Classe: " + classe.getSimpleName());
-                                                out.println("Method: " + hashMap.get(requestedPage).getMethodName()
-                                                        .get(indiceAssociation));
-                                                out.println("Reponse de l'execution: " + execution);
                                             } else {
-                                                Object object2 = this.execMethod(classe, hashMap.get(requestedPage)
-                                                        .getMethodName().get(indiceAssociation));
-
                                                 ModelView modelView = new ModelView();
                                                 modelView = (ModelView) object2;
 
@@ -211,18 +180,68 @@ public class FrontController extends HttpServlet
                                                     String key = entry.getKey();
                                                     Object value = entry.getValue();
                                                     request.setAttribute(key, value);
+                                                    if (value instanceof CustomerSession) {
+                                                        CustomerSession cs = new CustomerSession();
+                                                        cs = (CustomerSession) value;
+                                                        int existe = 0;
+                                                        for (Entry<String, Object> entry2 : cs.getSession()
+                                                                .entrySet()) {
+                                                            session.setAttribute(entry2.getKey(), entry2.getValue());
+                                                            existe++;
+                                                        }
+                                                        if (existe == 0) {
+                                                            Enumeration<String> attributeNames = session
+                                                                    .getAttributeNames();
+                                                            while (attributeNames.hasMoreElements()) {
+                                                                session.removeAttribute(attributeNames.nextElement());
+                                                            }
+                                                        }
+                                                    }
                                                 }
-
-                                                // Enumeration<String> attributeNames = session.getAttributeNames();
-                                                // while (attributeNames.hasMoreElements()) {
-                                                //     String attributeName = attributeNames.nextElement();
-                                                //     String key = this.getKeyByValue(modelView.getHashMap(),
-                                                //             session.getAttribute(attributeName));
-                                                //     session.setAttribute(key, modelView.getHashMap().get(key));
-                                                // }
 
                                                 request.getRequestDispatcher(modelView.getUrl()).forward(request,
                                                         response);
+                                            }
+                                        } else {
+                                            Object object2 = this.execMethod(classe, hashMap.get(requestedPage)
+                                                    .getMethodName().get(indiceAssociation));
+                                            if (methodSimple.isAnnotationPresent(RestAPI.class)) {
+                                                Gson gson = new Gson();
+                                                response.setContentType("application/json;charset=UTF-8");
+                                                String jsonResponse;
+                                                if (object2 instanceof ModelView) {
+                                                    ModelView modelAndView = (ModelView) object2;
+                                                    jsonResponse = gson.toJson(modelAndView.getHashMap());
+                                                    out.println(jsonResponse);
+                                                } else {
+                                                    jsonResponse = gson.toJson(object2);
+                                                    out.println(jsonResponse);
+                                                }
+                                            }
+                                            else {
+                                                if (typeClasse.get(indiceAssociation).equals("String")) {
+                                                    String execution = String.valueOf(this.execMethod(classe, hashMap
+                                                            .get(requestedPage).getMethodName()
+                                                            .get(indiceAssociation)));
+
+                                                    out.println("Classe: " + classe.getSimpleName());
+                                                    out.println("Method: " + hashMap.get(requestedPage).getMethodName()
+                                                            .get(indiceAssociation));
+                                                    out.println("Reponse de l'execution: " + execution);
+                                                } else {
+                                                    ModelView modelView = new ModelView();
+                                                    modelView = (ModelView) object2;
+
+                                                    for (Entry<String, Object> entry : modelView.getHashMap()
+                                                            .entrySet()) {
+                                                        String key = entry.getKey();
+                                                        Object value = entry.getValue();
+                                                        request.setAttribute(key, value);
+                                                    }
+
+                                                    request.getRequestDispatcher(modelView.getUrl()).forward(request,
+                                                            response);
+                                                }
                                             }
                                         }
 
@@ -293,29 +312,6 @@ public class FrontController extends HttpServlet
         }
         return methodSimple;
     }
-    
-    public Object[] listeObjet(ArrayList<String> listParamName, ArrayList<Object> listParamValue,Parameter[] parameters) {
-        ArrayList<Object> listeObjet = new ArrayList<>();
-
-        for (Parameter parameter : parameters) {
-            if (parameter.isAnnotationPresent(RequestParam.class)) {
-                RequestParam annotation2 = parameter.getAnnotation(RequestParam.class);
-                for (int j = 0; j < listParamName.size(); j++) {
-                    if (annotation2.value().equals(listParamName.get(j))) {
-                        listeObjet.add(listParamValue.get(j));
-                    }
-                }
-            }
-        }
-
-        // Caster la liste d'objet en tableau d'objet pour l'execution de methode
-        Object[] objectParameter = new Object[listeObjet.size()];
-        for (int index = 0; index < objectParameter.length; index++) {
-            objectParameter[index] = listeObjet.get(index);
-        }
-
-        return objectParameter;
-    }
 
     protected Object execMethodParams(Class<?> cla, String methodName, Object[] param) throws Exception {
         Class<?>[] paramTypes = new Class<?>[param.length];
@@ -344,6 +340,15 @@ public class FrontController extends HttpServlet
                     String[] splitParamName = listParamName.get(j).split("\\.");
                     if (annotation2.value().equals(splitParamName[0])) {
                         paramExistant.add(splitParamName[1]);
+                        valueExistant.add(listParamValue.get(j));
+                    }
+                }
+            }
+            else if(parameter.isAnnotationPresent(RequestParam.class)) {
+                RequestParam annotation2 = parameter.getAnnotation(RequestParam.class);
+                for (int j = 0; j < listParamName.size(); j++) {
+                    if (annotation2.value().equals(listParamName.get(j))) {
+                        paramExistant.add(listParamName.get(j));
                         valueExistant.add(listParamValue.get(j));
                     }
                 }
@@ -422,14 +427,6 @@ public class FrontController extends HttpServlet
             throw new IllegalArgumentException("Type de paramètre non pris en charge: " + targetType.getName());
         }
     }
-
-    // Sprint 8
-    // private String capitalizeFirstLetter(String str) {
-    //     if (str == null || str.isEmpty()) {
-    //         return str;
-    //     }
-    //     return str.substring(0, 1).toUpperCase() + str.substring(1);
-    // }
 
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)

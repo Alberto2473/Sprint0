@@ -30,8 +30,8 @@ public class ModelView {
         this.hashMap = hashMap;
     }
     
-    public void addObject(String variable,Object valeur) {
-        HashMap<String,Object> hashMap=new HashMap<String,Object>();
+    public void addObject(String variable, Object valeur) {
+        HashMap<String, Object> hashMap = new HashMap<String, Object>();
         hashMap.put(variable, valeur);
         this.setHashMap(hashMap);
     }
