@@ -4,7 +4,7 @@ import java.util.HashMap;
 
 public class ModelView {
     String url;
-    HashMap<String,Object> hashMap;
+    HashMap<String,Object> hashMap= new HashMap<>();
     
     public ModelView() {
     }

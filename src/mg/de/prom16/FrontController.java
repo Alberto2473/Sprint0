@@ -1,12 +1,15 @@
 package mg.de.prom16;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.util.ArrayList;
 import java.util.Enumeration;
@@ -17,15 +20,19 @@ import com.google.gson.Gson;
 
 import MV.ModelView;
 import Map.Mapping;
-import Session.CustomerSession;
+import Customer.CustomerFile;
+import Customer.CustomerSession;
 import Verb.VerbAction;
 import annotation.*;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.servlet.http.HttpSession;
+import jakarta.servlet.http.Part;
 
+@MultipartConfig
 public class FrontController extends HttpServlet {
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -46,6 +53,10 @@ public class FrontController extends HttpServlet {
             // out.println(attributeNames2.nextElement());
             // }
 
+            // for (Part part : request.getParts()) {
+            //     out.println("Part Name: " + part.getName());
+            // }
+            
             String controllerPackage = getServletConfig().getInitParameter("Controllers");
             // out.println(controllerPackage);
             ClassLoader loader = Thread.currentThread().getContextClassLoader();
@@ -64,7 +75,7 @@ public class FrontController extends HttpServlet {
                             if (file.isFile() && file.getName().endsWith(".class")) {
                                 String nom = file.getName().split("\\.")[0];
                                 // out.println(String.format("%s.%s" , controllerPackage, nom));
-                                Class<?> classe = Class.forName(String.format("%s.%s", controllerPackage,nom));
+                                Class<?> classe = Class.forName(String.format("%s.%s", controllerPackage, nom));
                                 if (classe.isAnnotationPresent(AnnotationController.class)) {
                                     // out.println(classe.getSimpleName());
                                     Method[] method = classe.getMethods();
@@ -93,21 +104,30 @@ public class FrontController extends HttpServlet {
 
                                     this.getParamNameAndValue(listParamName, listParamValue, request);
 
+                                    out.println("Name: ");
+                                    for (String elem : listParamName) {
+                                        out.println(elem);
+                                    }
+                                    out.println("Value: ");
+                                    for (Object elem : listParamValue) {
+                                        out.println(elem);
+                                    }
+
                                     int indiceAssociation = this.associer(requestedPage, annotationMethod);
 
                                     if (indiceAssociation > -1) {
                                         Method methodSimple = this.getMethodSimple(
-                                        hashMap.get(requestedPage).getMethodName().get(indiceAssociation),
+                                                hashMap.get(requestedPage).getMethodName().get(indiceAssociation),
                                                 listeMethode);
 
                                         if (this.MethodVerb(methodSimple)) {
-                                            out.println("URL: "+requestedPage);
-                                            out.println("Method: "+ request.getMethod());
+                                            // out.println("URL: "+requestedPage);
+                                            // out.println("Method: "+ request.getMethod());
                                             VerbAction verbAction = new VerbAction();
                                             verbAction.setUrl(requestedPage);
                                             verbAction.setVerb(request.getMethod());
-                                            out.println("URL: " + verbAction.getUrl());
-                                            out.println("Method: " + verbAction.getVerb());
+                                            // out.println("URL: " + verbAction.getUrl());
+                                            // out.println("Method: " + verbAction.getVerb());
                                             if (methodSimple.isAnnotationPresent(GetMethode.class)
                                                     && methodSimple.isAnnotationPresent(POST.class)) {
                                                 GetMethode getMethode = methodSimple.getAnnotation(GetMethode.class);
@@ -123,7 +143,7 @@ public class FrontController extends HttpServlet {
                                                 }
                                             }
                                         }
-                                        
+
                                         if (confirmationMethode == 1) {
                                             Parameter[] parameters = methodSimple.getParameters();
 
@@ -131,16 +151,21 @@ public class FrontController extends HttpServlet {
                                             ArrayList<Object> valueExistant = new ArrayList<>();
 
                                             this.paramValueExistant(listParamName, listParamValue, paramExistant,
-                                                    valueExistant, parameters, session);
+                                                    valueExistant, parameters, session, request, out);
 
                                             // out.println("Parametre:");
                                             // for(String elem:paramExistant) {
-                                            // out.println(elem);
+                                            //     out.println(elem);
                                             // }
 
                                             // out.println("Valeur:");
                                             // for(Object elem:valueExistant) {
-                                            // out.println(elem);
+                                            //     if (elem instanceof CustomerFile) {
+                                            //         CustomerFile cf = (CustomerFile) elem;
+                                            //         out.println(cf.getByteFile());
+                                            //     } else {
+                                            //         out.println(elem);
+                                            //     }
                                             // }
 
                                             Field[] attribut = classe.getDeclaredFields();
@@ -181,12 +206,17 @@ public class FrontController extends HttpServlet {
 
                                                 // out.println("Les parametres du methode: ");
                                                 // for (Object elem : allParameter) {
-                                                // out.println(elem);
+                                                //     if (elem instanceof CustomerFile) {
+                                                //         CustomerFile cf = (CustomerFile) elem;
+                                                //         out.println(cf.getByteFile());
+                                                //     }
+                                                //     else {
+                                                //         out.println(elem);
+                                                //     }
                                                 // }
 
-                                                Object object2 = this.execMethodParams(classe,
-                                                        hashMap.get(requestedPage).getMethodName()
-                                                                .get(indiceAssociation),
+                                                Object object2 = this.execMethodParams(classe, hashMap
+                                                        .get(requestedPage).getMethodName().get(indiceAssociation),
                                                         allParameter);
 
                                                 if (methodSimple.isAnnotationPresent(RestAPI.class)) {
@@ -269,13 +299,13 @@ public class FrontController extends HttpServlet {
                                                             Object value = entry.getValue();
                                                             request.setAttribute(key, value);
                                                         }
-                                                        request.getRequestDispatcher(modelView.getUrl()).forward(request,response);
+                                                        request.getRequestDispatcher(modelView.getUrl())
+                                                                .forward(request, response);
                                                     }
                                                 }
                                             }
 
-                                            // Quitter le scan des classes et confirmer la liaison de l'url et le
-                                            // methode
+                                            // Quitter le scan des classes et confirmer la liaison de l'url et le methode
                                             confirmation = 1;
                                             i = files.length;
                                         }
@@ -324,14 +354,34 @@ public class FrontController extends HttpServlet {
 
     // Sprint 6
     public void getParamNameAndValue(ArrayList<String> listParamName, ArrayList<Object> listParamValue,
-            HttpServletRequest request) {
-        Enumeration<String> paramNames = request.getParameterNames();
-        while (paramNames.hasMoreElements()) {
-            String paramName = paramNames.nextElement();
-            String paramValue = request.getParameter(paramName);
+            HttpServletRequest request) throws IOException, ServletException {
+        if (request.getContentType() != null && request.getContentType().toLowerCase().startsWith("multipart/")) {
+            for (Part part : request.getParts()) {
+                String paramName = part.getName(); // Récupère le "name" de l'input
+                String submittedFileName = part.getSubmittedFileName(); // Récupère le nom du fichier si c'est un
+                                                                        // fichier
+                listParamName.add(paramName);
 
-            listParamName.add(paramName);
-            listParamValue.add(paramValue);
+                if (submittedFileName != null) {
+                    listParamValue.add(submittedFileName);
+                } else {
+                    // Si c'est un champ texte, récupérer sa valeur
+                    try (InputStream inputStream = part.getInputStream()) {
+                        String value = new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+                        listParamValue.add(value);
+                    }
+                }
+            }
+        }
+        else {
+            Enumeration<String> paramNames = request.getParameterNames();
+            while (paramNames.hasMoreElements()) {
+                String paramName = paramNames.nextElement();
+                String paramValue = request.getParameter(paramName);
+
+                listParamName.add(paramName);
+                listParamValue.add(paramValue);
+            }
         }
     }
 
@@ -366,7 +416,7 @@ public class FrontController extends HttpServlet {
     // Sprint 7
     public void paramValueExistant(ArrayList<String> listParamName, ArrayList<Object> listParamValue,
             ArrayList<String> paramExistant, ArrayList<Object> valueExistant, Parameter[] parameters,
-            HttpSession session) {
+            HttpSession session,HttpServletRequest request,PrintWriter out)throws IOException,ServletException {
         for (Parameter parameter : parameters) {
             if (parameter.isAnnotationPresent(ObjectParam.class)) {
                 ObjectParam annotation2 = parameter.getAnnotation(ObjectParam.class);
@@ -378,11 +428,32 @@ public class FrontController extends HttpServlet {
                     }
                 }
             } else if (parameter.isAnnotationPresent(RequestParam.class)) {
+                // out.println("oui RequestParam");
                 RequestParam annotation2 = parameter.getAnnotation(RequestParam.class);
+                out.println(annotation2.value());
                 for (int j = 0; j < listParamName.size(); j++) {
+                    out.println(listParamName.get(j));
                     if (annotation2.value().equals(listParamName.get(j))) {
-                        paramExistant.add(listParamName.get(j));
-                        valueExistant.add(listParamValue.get(j));
+                            out.println("oui mitovy ny inputName sy annotation.value()");
+                        if (parameter.getType() == CustomerFile.class) {
+                            out.println("oui de type CustomerFile");
+
+                            byte[] bytes = this.fillCustomerFile(request,listParamName.get(j),out);
+                            
+                            CustomerFile cf = new CustomerFile();
+
+                            if (bytes != null) {
+                                cf.setByteFile(bytes);
+                            }
+
+                            paramExistant.add(listParamName.get(j));
+                            valueExistant.add(cf);
+
+                        }
+                        else {
+                            paramExistant.add(listParamName.get(j));
+                            valueExistant.add(listParamValue.get(j));
+                        }
                     }
                 }
             } else if (parameter.getType() == CustomerSession.class) {
@@ -460,7 +531,7 @@ public class FrontController extends HttpServlet {
         }
     }
 
-    // Sprint 9
+    // Sprint 10
     public boolean MethodVerb(Method method) throws Exception {
         if (method.isAnnotationPresent(POST.class) && method.isAnnotationPresent(GetMethode.class)) {
             return true;
@@ -468,6 +539,30 @@ public class FrontController extends HttpServlet {
             return true;
         }
         return false;
+    }
+
+    // Sprint 12
+    public byte[] fillCustomerFile(HttpServletRequest request, String inputName, PrintWriter out)
+            throws IOException, ServletException {
+        byte[] fileBytes = null;
+
+        out.println(inputName);
+        Part part = request.getPart(inputName);
+
+        if (part != null && part.getSubmittedFileName() != null && !part.getSubmittedFileName().isEmpty()) {
+            out.println("Part valider");
+            try (InputStream fileContent = part.getInputStream()) {
+                try (ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream()) {
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = fileContent.read(buffer)) != -1) {
+                        byteArrayOutputStream.write(buffer, 0, bytesRead);
+                    }
+                    fileBytes = byteArrayOutputStream.toByteArray();
+                }
+            }
+        }
+        return fileBytes;
     }
 
     @Override
