@@ -101,13 +101,13 @@ public class FrontController extends HttpServlet {
                                                 listeMethode);
 
                                         if (this.MethodVerb(methodSimple)) {
-                                            // out.println("URL: "+requestedPage);
-                                            // out.println("Method: "+ request.getMethod());
+                                            out.println("URL: "+requestedPage);
+                                            out.println("Method: "+ request.getMethod());
                                             VerbAction verbAction = new VerbAction();
                                             verbAction.setUrl(requestedPage);
                                             verbAction.setVerb(request.getMethod());
-                                            // out.println("URL: " + verbAction.getUrl());
-                                            // out.println("Method: " + verbAction.getVerb());
+                                            out.println("URL: " + verbAction.getUrl());
+                                            out.println("Method: " + verbAction.getVerb());
                                             if (methodSimple.isAnnotationPresent(GetMethode.class)
                                                     && methodSimple.isAnnotationPresent(POST.class)) {
                                                 GetMethode getMethode = methodSimple.getAnnotation(GetMethode.class);
@@ -130,7 +130,8 @@ public class FrontController extends HttpServlet {
                                             ArrayList<String> paramExistant = new ArrayList<>();
                                             ArrayList<Object> valueExistant = new ArrayList<>();
 
-                                            this.paramValueExistant(listParamName, listParamValue, paramExistant, valueExistant, parameters, session);
+                                            this.paramValueExistant(listParamName, listParamValue, paramExistant,
+                                                    valueExistant, parameters, session);
 
                                             // out.println("Parametre:");
                                             // for(String elem:paramExistant) {
@@ -213,20 +214,25 @@ public class FrontController extends HttpServlet {
                                                             CustomerSession cs = new CustomerSession();
                                                             cs = (CustomerSession) value;
                                                             int existe = 0;
-                                                            for (Entry<String, Object> entry2 : cs.getSession().entrySet()) {
-                                                                session.setAttribute(entry2.getKey(),entry2.getValue());
+                                                            for (Entry<String, Object> entry2 : cs.getSession()
+                                                                    .entrySet()) {
+                                                                session.setAttribute(entry2.getKey(),
+                                                                        entry2.getValue());
                                                                 existe++;
                                                             }
                                                             if (existe == 0) {
-                                                                Enumeration<String> attributeNames = session.getAttributeNames();
+                                                                Enumeration<String> attributeNames = session
+                                                                        .getAttributeNames();
                                                                 while (attributeNames.hasMoreElements()) {
-                                                                    session.removeAttribute(attributeNames.nextElement());
+                                                                    session.removeAttribute(
+                                                                            attributeNames.nextElement());
                                                                 }
                                                             }
                                                         }
                                                     }
 
-                                                    request.getRequestDispatcher(modelView.getUrl()).forward(request,response);
+                                                    request.getRequestDispatcher(modelView.getUrl()).forward(request,
+                                                            response);
                                                 }
                                             } else {
                                                 Object object2 = this.execMethod(classe, hashMap.get(requestedPage)
@@ -250,7 +256,8 @@ public class FrontController extends HttpServlet {
                                                                         .getMethodName().get(indiceAssociation)));
 
                                                         out.println("Classe: " + classe.getSimpleName());
-                                                        out.println("Method: " + hashMap.get(requestedPage).getMethodName().get(indiceAssociation));
+                                                        out.println("Method: " + hashMap.get(requestedPage)
+                                                                .getMethodName().get(indiceAssociation));
                                                         out.println("Reponse de l'execution: " + execution);
                                                     } else {
                                                         ModelView modelView = new ModelView();
@@ -262,9 +269,7 @@ public class FrontController extends HttpServlet {
                                                             Object value = entry.getValue();
                                                             request.setAttribute(key, value);
                                                         }
-                                                        request.getRequestDispatcher(modelView.getUrl()).forward(
-                                                                request,
-                                                                response);
+                                                        request.getRequestDispatcher(modelView.getUrl()).forward(request,response);
                                                     }
                                                 }
                                             }
@@ -279,7 +284,7 @@ public class FrontController extends HttpServlet {
                             }
                         }
                         if (confirmation == 0) {
-                            out.println("Aucune methode est lies a l'url tapez");
+                            response.sendError(HttpServletResponse.SC_NOT_FOUND, "Page non trouvée");
                         }
                         if (confirmationMethode == 0) {
                             out.println("Methode non valider");
@@ -455,7 +460,7 @@ public class FrontController extends HttpServlet {
         }
     }
 
-    // Sprint 10
+    // Sprint 9
     public boolean MethodVerb(Method method) throws Exception {
         if (method.isAnnotationPresent(POST.class) && method.isAnnotationPresent(GetMethode.class)) {
             return true;
